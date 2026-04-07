@@ -287,11 +287,12 @@ export default function App() {
   const [referenceInput, setReferenceInput] = useState('');
   const [nextVibe, setNextVibe] = useState<string>('랜덤');
   const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('CUSTOM_GEMINI_API_KEY') || '');
+  const [isKeySaved, setIsKeySaved] = useState(false);
 
   // Auth listener
   useEffect(() => {
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn("GEMINI_API_KEY is missing. Content generation will not work until you add it to your environment variables (e.g., in Vercel settings).");
+    if (!process.env.GEMINI_API_KEY && !localStorage.getItem('CUSTOM_GEMINI_API_KEY')) {
+      console.warn("GEMINI_API_KEY is missing. Content generation will not work until you add it to your environment variables or settings.");
     }
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -457,9 +458,10 @@ export default function App() {
 
   const startGeneration = async () => {
     if (!user) return;
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is missing. Please set it in your environment variables.");
-      alert("API Key is missing. Please check your environment configuration.");
+    const hasApiKey = process.env.GEMINI_API_KEY || localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+    if (!hasApiKey) {
+      console.error("GEMINI_API_KEY is missing. Please set it in your environment variables or settings.");
+      alert("API Key is missing. Please check your environment configuration or enter it in Settings.");
       return;
     }
     setIsGenerating(true);
@@ -560,9 +562,10 @@ export default function App() {
   };
 
   const generateNextPages = async (story: Story, config: any, startPage: number, currentVibe: string) => {
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is missing. Please set it in your environment variables.");
-      alert("API Key is missing. Please check your environment configuration.");
+    const hasApiKey = process.env.GEMINI_API_KEY || localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+    if (!hasApiKey) {
+      console.error("GEMINI_API_KEY is missing. Please set it in your environment variables or settings.");
+      alert("API Key is missing. Please check your environment configuration or enter it in Settings.");
       return;
     }
     const batchSize = 10;
@@ -961,17 +964,34 @@ export default function App() {
                   <p className="text-xs text-slate-500 mb-2">
                     Enter your Gemini API key to use your own quota. This will be saved locally in your browser.
                   </p>
-                  <input 
-                    type="password"
-                    value={customApiKey}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setCustomApiKey(val);
-                      localStorage.setItem('CUSTOM_GEMINI_API_KEY', val);
-                    }}
-                    placeholder="AIzaSy..."
-                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      type="password"
+                      value={customApiKey}
+                      onChange={(e) => {
+                        setCustomApiKey(e.target.value);
+                        setIsKeySaved(false);
+                      }}
+                      placeholder="AIzaSy..."
+                      className="flex-1 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('CUSTOM_GEMINI_API_KEY', customApiKey);
+                        setIsKeySaved(true);
+                        setTimeout(() => setIsKeySaved(false), 2000);
+                      }}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {t('save')}
+                    </button>
+                  </div>
+                  {isKeySaved && (
+                    <p className="text-sm text-green-600 mt-2 font-medium">
+                      API Key saved successfully!
+                    </p>
+                  )}
                 </div>
                 
                 <div className="pt-6 border-t border-slate-100">
