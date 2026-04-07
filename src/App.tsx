@@ -23,7 +23,8 @@ import {
   Minus,
   PlusCircle,
   Save,
-  Trash2
+  Trash2,
+  Settings
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -52,9 +53,13 @@ import { cn } from './lib/utils';
 import { CATEGORIES, STYLES, VIBES } from './constants';
 import { SelectionStep, SelectionState, Story, Page } from './types';
 import ReactMarkdown from 'react-markdown';
-import { jsPDF } from 'jspdf';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const getAI = () => {
+  const customKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+  return new GoogleGenAI({ apiKey: customKey || process.env.GEMINI_API_KEY || '' });
+};
 
 enum OperationType {
   CREATE = 'create',
@@ -141,7 +146,8 @@ const DICT = {
     translating: "번역 중...",
     save: "저장",
     cancel: "취소",
-    delete: "삭제"
+    delete: "삭제",
+    settings: "설정"
   },
   en: {
     library: "My Library",
@@ -176,7 +182,8 @@ const DICT = {
     translating: "Translating...",
     save: "Save",
     cancel: "Cancel",
-    delete: "Delete"
+    delete: "Delete",
+    settings: "Settings"
   }
 };
 
@@ -279,6 +286,7 @@ export default function App() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [referenceInput, setReferenceInput] = useState('');
   const [nextVibe, setNextVibe] = useState<string>('랜덤');
+  const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('CUSTOM_GEMINI_API_KEY') || '');
 
   // Auth listener
   useEffect(() => {
@@ -313,7 +321,7 @@ export default function App() {
           Content: ${page.content}
           Return ONLY the translated text.`;
 
-          const response = await ai.models.generateContent({
+          const response = await getAI().models.generateContent({
             model: "gemini-1.5-flash",
             contents: prompt
           });
@@ -413,7 +421,7 @@ export default function App() {
       Art style: ${story.style}.
       No text on the image. High quality, vibrant colors, artistic.`;
       
-      const response = await ai.models.generateContent({
+      const response = await getAI().models.generateContent({
         model: "gemini-1.5-flash",
         contents: prompt,
         config: {
@@ -484,7 +492,7 @@ export default function App() {
 
       // If Type B (Reference Input)
       if (referenceInput) {
-        const analysisResponse = await ai.models.generateContent({
+        const analysisResponse = await getAI().models.generateContent({
           model: "gemini-1.5-flash",
           contents: `Analyze the following book title or URL and provide a detailed summary and the best category, subcategory, style, and vibe for a similar story.
           Input: ${referenceInput}
@@ -605,7 +613,7 @@ export default function App() {
           }
         ]`;
 
-        const response = await ai.models.generateContent({
+        const response = await getAI().models.generateContent({
           model: "gemini-1.5-flash",
           contents: prompt,
           config: { 
@@ -681,43 +689,36 @@ export default function App() {
   const downloadPDF = async () => {
     if (!currentStory || pages.length === 0) return;
     
-    const doc = new jsPDF();
-    const margin = 10;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+    const printDiv = document.createElement('div');
+    printDiv.style.padding = '20px';
+    printDiv.style.fontFamily = 'sans-serif';
     
-    doc.setFontSize(24);
-    doc.text(currentStory.title, margin, 20);
-    doc.setFontSize(12);
-    doc.text(`${currentStory.category} / ${currentStory.subCategory}`, margin, 30);
-    doc.text(`Style: ${currentStory.style}`, margin, 35);
-    
-    let y = 50;
+    let html = `
+      <h1 style="font-size: 24px; margin-bottom: 10px;">${currentStory.title}</h1>
+      <p style="font-size: 12px; color: #666; margin-bottom: 5px;">${currentStory.category} / ${currentStory.subCategory}</p>
+      <p style="font-size: 12px; color: #666; margin-bottom: 20px;">Style: ${currentStory.style}</p>
+    `;
     
     pages.forEach((page, index) => {
-      if (index > 0) {
-        doc.addPage();
-        y = 20;
-      }
-      
-      doc.setFontSize(10);
-      doc.text(`Page ${page.pageNumber}`, margin, y);
-      y += 10;
-      
-      doc.setFontSize(12);
-      const splitText = doc.splitTextToSize(page.content.replace(/[#*`]/g, ''), pageWidth - (margin * 2));
-      
-      splitText.forEach((line: string) => {
-        if (y > pageHeight - 20) {
-          doc.addPage();
-          y = 20;
-        }
-        doc.text(line, margin, y);
-        y += 7;
-      });
+      html += `
+        <div style="${index > 0 ? 'page-break-before: always; ' : ''}margin-top: 20px;">
+          <h3 style="font-size: 14px; margin-bottom: 10px;">Page ${page.pageNumber}</h3>
+          <div style="font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${page.content.replace(/[#*`]/g, '')}</div>
+        </div>
+      `;
     });
     
-    doc.save(`${currentStory.title}.pdf`);
+    printDiv.innerHTML = html;
+    
+    const opt = {
+      margin:       10,
+      filename:     `${currentStory.title}.pdf`,
+      image:        { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+    };
+    
+    html2pdf().set(opt).from(printDiv).save();
   };
 
   const handleBack = () => {
@@ -799,12 +800,12 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* Header */}
       <header className="p-4 flex items-center justify-between border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-2 cursor-pointer w-1/3" onClick={resetSelection}>
+        <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={resetSelection}>
           <Sparkles className="w-6 h-6 text-blue-500" />
           <h1 className="font-bold text-xl tracking-tight hidden sm:block">{t('appTitle')}</h1>
         </div>
         
-        <div className="w-1/3 flex justify-center">
+        <div className="flex-1 flex justify-center">
           {['category', 'subCategory', 'style', 'vibe', 'keywords', 'pages', 'nextVibe'].includes(step) && (
             <button 
               onClick={handleRandom}
@@ -816,7 +817,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="flex items-center gap-4 w-1/3 justify-end">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0 justify-end">
           <button 
             onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
             className="px-2 py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 rounded-md text-slate-600"
@@ -828,21 +829,28 @@ export default function App() {
             className="p-2 hover:bg-slate-100 rounded-full transition-colors"
             title={t('library')}
           >
-            <LibraryIcon className="w-6 h-6" />
+            <LibraryIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
           <button 
             onClick={() => setStep('category')}
             className="p-2 hover:bg-slate-100 rounded-full transition-colors"
             title={t('newStory')}
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+          <button 
+            onClick={() => setStep('settings')}
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+            title={t('settings')}
+          >
+            <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
           <button 
             onClick={handleLogout}
             className="p-2 hover:bg-slate-100 rounded-full transition-colors"
             title={t('logout')}
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
       </header>
@@ -932,6 +940,44 @@ export default function App() {
                     </motion.div>
                   ))
                 )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step: Settings */}
+          {step === 'settings' && (
+            <motion.div 
+              key="settings"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="flex-1 p-8 max-w-2xl mx-auto w-full"
+            >
+              <h2 className="text-3xl font-black text-slate-800 mb-8">{t('settings')}</h2>
+              
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Gemini API Key</label>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Enter your Gemini API key to use your own quota. This will be saved locally in your browser.
+                  </p>
+                  <input 
+                    type="password"
+                    value={customApiKey}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomApiKey(val);
+                      localStorage.setItem('CUSTOM_GEMINI_API_KEY', val);
+                    }}
+                    placeholder="AIzaSy..."
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                
+                <div className="pt-6 border-t border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-700 mb-2">App Info</h3>
+                  <p className="text-sm text-slate-600">Version: 1.0.2</p>
+                </div>
               </div>
             </motion.div>
           )}

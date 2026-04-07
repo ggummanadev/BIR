@@ -33,7 +33,7 @@ export interface Page {
   createdAt: any;
 }
 
-export type SelectionStep = 'category' | 'subCategory' | 'style' | 'vibe' | 'keywords' | 'pages' | 'generating' | 'reading' | 'library' | 'nextVibe' | 'translating';
+export type SelectionStep = 'category' | 'subCategory' | 'style' | 'vibe' | 'keywords' | 'pages' | 'generating' | 'reading' | 'library' | 'nextVibe' | 'translating' | 'settings';
 
 export interface SelectionState {
   category?: string;
