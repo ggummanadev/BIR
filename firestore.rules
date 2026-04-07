@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: stories
+    // Document ID: {storyId}
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required)
+    //   - title: string (required)
+    //   - category: string (optional)
+    //   - subCategory: string (optional)
+    //   - style: string (optional)
+    //   - vibe: string (optional)
+    //   - keywords: string (optional)
+    //   - language: string (required, 'ko' | 'en')
+    //   - totalPages: number (required)
+    //   - currentPage: number (required)
+    //   - createdAt: timestamp (required)
+    //   - isCompleted: bool (required)
+    //   - referenceBooks: list (optional)
+    //   - coverUrl: string (optional)
+    //   - summary: string (optional)
+    //
+    // Collection: stories/{storyId}/pages
+    // Document ID: {pageId}
+    // Fields:
+    //   - id: string (required)
+    //   - storyId: string (required)
+    //   - pageNumber: number (required)
+    //   - content: string (required)
+    //   - translatedContent: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email);
+    }
+
+    function isValidStory(data) {
+      return data.keys().hasAll(['userId', 'title', 'totalPages', 'currentPage', 'createdAt', 'isCompleted', 'language']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.totalPages is number && data.totalPages >= 1 && data.totalPages <= 1000 &&
+             data.currentPage is number &&
+             data.isCompleted is bool &&
+             data.language in ['ko', 'en'];
+    }
+
+    function isValidPage(data) {
+      return data.keys().hasAll(['storyId', 'pageNumber', 'content', 'createdAt']) &&
+             data.storyId is string &&
+             data.pageNumber is number &&
+             data.content is string && data.content.size() > 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if isOwner(uid) && isValidUser(request.resource.data);
+    }
+
+    match /stories/{storyId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidStory(request.resource.data);
+      allow update: if isDocOwner() && isValidStory(request.resource.data);
+      allow delete: if isDocOwner();
+
+      match /pages/{pageId} {
+        allow read: if isAuthenticated() && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid;
+        allow create: if isAuthenticated() && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid && isValidPage(request.resource.data);
+        allow update: if isAuthenticated() && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid && isValidPage(request.resource.data);
+      }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "A generated story or book.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "subCategory": { "type": "string" },
+        "style": { "type": "string" },
+        "vibe": { "type": "string" },
+        "keywords": { "type": "string" },
+        "language": { "type": "string", "enum": ["ko", "en"] },
+        "totalPages": { "type": "number", "minimum": 1 },
+        "currentPage": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isCompleted": { "type": "boolean" },
+        "referenceBooks": { "type": "array", "items": { "type": "string" } },
+        "coverUrl": { "type": "string" },
+        "summary": { "type": "string" }
+      },
+      "required": ["userId", "title", "totalPages", "language"]
+    },
+    "Page": {
+      "title": "Page",
+      "description": "A single page of a story.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storyId": { "type": "string" },
+        "pageNumber": { "type": "number" },
+        "content": { "type": "string" },
+        "translatedContent": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["storyId", "pageNumber", "content"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Generated stories."
+    },
+    "/stories/{storyId}/pages/{pageId}": {
+      "schema": "Page",
+      "description": "Pages for a specific story."
+    }
+  }
+}
