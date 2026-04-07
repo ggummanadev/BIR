@@ -323,7 +323,7 @@ export default function App() {
           Return ONLY the translated text.`;
 
           const response = await getAI().models.generateContent({
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             contents: prompt
           });
 
@@ -423,7 +423,7 @@ export default function App() {
       No text on the image. High quality, vibrant colors, artistic.`;
       
       const response = await getAI().models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           imageConfig: {
@@ -495,7 +495,7 @@ export default function App() {
       // If Type B (Reference Input)
       if (referenceInput) {
         const analysisResponse = await getAI().models.generateContent({
-          model: "gemini-1.5-flash",
+          model: "gemini-2.5-flash",
           contents: `Analyze the following book title or URL and provide a detailed summary and the best category, subcategory, style, and vibe for a similar story.
           Input: ${referenceInput}
           Return JSON format: { "category": "...", "subCategory": "...", "style": "...", "vibe": "...", "title": "...", "summary": "..." }`,
@@ -617,7 +617,7 @@ export default function App() {
         ]`;
 
         const response = await getAI().models.generateContent({
-          model: "gemini-1.5-flash",
+          model: "gemini-2.5-flash",
           contents: prompt,
           config: { 
             responseMimeType: "application/json",
