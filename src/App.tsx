@@ -282,6 +282,9 @@ export default function App() {
 
   // Auth listener
   useEffect(() => {
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn("GEMINI_API_KEY is missing. Content generation will not work until you add it to your environment variables (e.g., in Vercel settings).");
+    }
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -311,7 +314,7 @@ export default function App() {
           Return ONLY the translated text.`;
 
           const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-1.5-flash",
             contents: prompt
           });
 
@@ -411,7 +414,7 @@ export default function App() {
       No text on the image. High quality, vibrant colors, artistic.`;
       
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-1.5-flash",
         contents: prompt,
         config: {
           imageConfig: {
@@ -446,6 +449,11 @@ export default function App() {
 
   const startGeneration = async () => {
     if (!user) return;
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is missing. Please set it in your environment variables.");
+      alert("API Key is missing. Please check your environment configuration.");
+      return;
+    }
     setIsGenerating(true);
     setStep('generating');
 
@@ -477,7 +485,7 @@ export default function App() {
       // If Type B (Reference Input)
       if (referenceInput) {
         const analysisResponse = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: "gemini-1.5-flash",
           contents: `Analyze the following book title or URL and provide a detailed summary and the best category, subcategory, style, and vibe for a similar story.
           Input: ${referenceInput}
           Return JSON format: { "category": "...", "subCategory": "...", "style": "...", "vibe": "...", "title": "...", "summary": "..." }`,
@@ -544,6 +552,11 @@ export default function App() {
   };
 
   const generateNextPages = async (story: Story, config: any, startPage: number, currentVibe: string) => {
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is missing. Please set it in your environment variables.");
+      alert("API Key is missing. Please check your environment configuration.");
+      return;
+    }
     const batchSize = 10;
     const endPage = Math.min(startPage + batchSize, story.totalPages);
     
@@ -593,7 +606,7 @@ export default function App() {
         ]`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-flash-latest",
+          model: "gemini-1.5-flash",
           contents: prompt,
           config: { 
             responseMimeType: "application/json",
@@ -653,7 +666,8 @@ export default function App() {
         console.error(`Attempt ${attempt} failed:`, error);
         if (attempt === maxRetries) {
           console.error("Page generation failed after retries", error);
-          alert("Page generation failed. Please try again.");
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          alert(`Page generation failed: ${errorMessage}\n\nPlease check your Gemini API key and quota. If you are using a free key, ensure you haven't exceeded the rate limit.`);
           setIsGenerating(false);
           setStep('reading');
         } else {
