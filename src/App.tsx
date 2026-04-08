@@ -286,6 +286,7 @@ export default function App() {
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [pages, setPages] = useState<Page[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [referenceInput, setReferenceInput] = useState('');
   const [nextVibe, setNextVibe] = useState<string>('랜덤');
@@ -469,6 +470,7 @@ export default function App() {
     }
     setIsGenerating(true);
     setStep('generating');
+    setGenerationError(null);
 
     try {
       if (currentStory) {
@@ -582,8 +584,9 @@ export default function App() {
     
     setIsGenerating(true);
     setStep('generating');
+    setGenerationError(null);
 
-    const maxRetries = 3;
+    const maxRetries = 5;
     let attempt = 0;
     let success = false;
 
@@ -688,12 +691,13 @@ export default function App() {
         if (attempt === maxRetries) {
           console.error("Page generation failed after retries", error);
           const errorMessage = error instanceof Error ? error.message : String(error);
-          alert(`Page generation failed: ${errorMessage}\n\nPlease check your Gemini API key and quota. If you are using a free key, ensure you haven't exceeded the rate limit.`);
+          setGenerationError(`생성 실패: ${errorMessage}\n\n잠시 후 다시 시도해주세요. (서버 혼잡)`);
           setIsGenerating(false);
-          setStep('reading');
+          // Don't change step, stay on generating/error view
         } else {
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Exponential backoff: 2s, 4s, 8s, 16s
+          const backoffTime = Math.pow(2, attempt) * 1000;
+          await new Promise(resolve => setTimeout(resolve, backoffTime));
         }
       }
     }
@@ -1344,19 +1348,51 @@ export default function App() {
               animate={{ opacity: 1 }}
               className="flex-1 flex flex-col items-center justify-center p-8 text-center"
             >
-              <div className="relative w-32 h-32 mb-8">
-                <motion.div 
-                  animate={{ 
-                    scale: [1, 1.2, 1],
-                    rotate: 360
-                  }}
-                  transition={{ repeat: Infinity, duration: 3 }}
-                  className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full"
-                />
-                <Sparkles className="absolute inset-0 m-auto w-12 h-12 text-blue-500" />
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">{t('generating')}</h2>
-              <p className="text-slate-500">{t('generatingDesc')}</p>
+              {generationError ? (
+                <div className="bg-red-50 text-red-600 p-6 rounded-3xl max-w-md border border-red-100">
+                  <h3 className="font-bold text-xl mb-2">오류 발생</h3>
+                  <p className="whitespace-pre-wrap mb-6 text-sm">{generationError}</p>
+                  <div className="flex gap-4 justify-center">
+                    <button 
+                      onClick={() => {
+                        setStep('reading');
+                        setGenerationError(null);
+                      }}
+                      className="px-6 py-2 bg-slate-200 text-slate-700 font-bold rounded-full hover:bg-slate-300 transition-all"
+                    >
+                      돌아가기
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (currentStory) {
+                          generateNextPages(currentStory, selection, currentStory.currentPage, selection.vibe || '랜덤');
+                        } else {
+                          startGeneration();
+                        }
+                      }}
+                      className="px-6 py-2 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 transition-all"
+                    >
+                      다시 시도
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative w-32 h-32 mb-8">
+                    <motion.div 
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: 360
+                      }}
+                      transition={{ repeat: Infinity, duration: 3 }}
+                      className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full"
+                    />
+                    <Sparkles className="absolute inset-0 m-auto w-12 h-12 text-blue-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">{t('generating')}</h2>
+                  <p className="text-slate-500">{t('generatingDesc')}</p>
+                </>
+              )}
             </motion.div>
           )}
 
