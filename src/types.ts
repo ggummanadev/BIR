@@ -13,6 +13,7 @@ export interface Story {
   subCategory?: string;
   style?: string;
   vibe?: string;
+  tone?: string;
   keywords?: string;
   language: 'ko' | 'en';
   totalPages: number;
@@ -33,13 +34,14 @@ export interface Page {
   createdAt: any;
 }
 
-export type SelectionStep = 'category' | 'subCategory' | 'style' | 'vibe' | 'keywords' | 'pages' | 'generating' | 'reading' | 'library' | 'nextVibe' | 'translating' | 'settings';
+export type SelectionStep = 'category' | 'subCategory' | 'style' | 'vibe' | 'tone' | 'keywords' | 'pages' | 'generating' | 'reading' | 'library' | 'nextVibe' | 'translating' | 'settings';
 
 export interface SelectionState {
   category?: string;
   subCategory?: string;
   style?: string;
   vibe?: string;
+  tone?: string;
   keywords?: string;
   totalPages?: number;
   referenceInput?: string;

@@ -20,3 +20,14 @@ export const VIBES = [
   { id: 'sad', label: '슬픈' },
   { id: 'hopeful', label: '희망찬' },
 ];
+
+export const TONES = [
+  { id: 'lyrical', label: '서정적인' },
+  { id: 'honorific', label: '극존칭' },
+  { id: 'hage', label: '하게체' },
+  { id: 'hayo', label: '하요체' },
+  { id: 'eumseum', label: '음슴체' },
+  { id: 'concise', label: '간결체' },
+  { id: 'verbose', label: '만연체' },
+  { id: 'conversational', label: '대화체' },
+];

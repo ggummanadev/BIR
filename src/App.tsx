@@ -50,7 +50,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { cn } from './lib/utils';
-import { CATEGORIES, STYLES, VIBES } from './constants';
+import { CATEGORIES, STYLES, VIBES, TONES } from './constants';
 import { SelectionStep, SelectionState, Story, Page } from './types';
 import ReactMarkdown from 'react-markdown';
 // @ts-ignore
@@ -123,6 +123,7 @@ const DICT = {
     subCategoryQ: "의 어떤 분야인가요?",
     styleQ: "어떤 스타일로 쓰여지길 원하시나요?",
     vibeQ: "어떤 느낌의 글인가요?",
+    toneQ: "어떤 문체로 글을 적을까요?",
     keywordsQ: "추가하고 싶은 키워드나 내용이 있나요?",
     keywordsPlaceholder: "예: 주인공이 고양이, 반전 결말...",
     next: "다음",
@@ -159,6 +160,7 @@ const DICT = {
     subCategoryQ: "Which sub-genre?",
     styleQ: "What style should it be written in?",
     vibeQ: "What is the vibe of the story?",
+    toneQ: "What tone should be used?",
     keywordsQ: "Any specific keywords or details to add?",
     keywordsPlaceholder: "e.g., The main character is a cat, plot twist...",
     next: "Next",
@@ -275,6 +277,7 @@ export default function App() {
   const [customCategories, setCustomCategories] = useState(CATEGORIES);
   const [customStyles, setCustomStyles] = useState(STYLES);
   const [customVibes, setCustomVibes] = useState(VIBES);
+  const [customTones, setCustomTones] = useState(TONES);
 
   const [step, setStep] = useState<SelectionStep>('category');
 
@@ -473,6 +476,8 @@ export default function App() {
         try {
           await updateDoc(doc(db, 'stories', currentStory.id), {
             totalPages: selection.totalPages || currentStory.totalPages + 10,
+            tone: selection.tone || currentStory.tone || '',
+            keywords: selection.keywords || currentStory.keywords || '',
             isCompleted: false
           });
         } catch (error) {
@@ -482,6 +487,8 @@ export default function App() {
         const updatedStory = {
           ...currentStory,
           totalPages: selection.totalPages || currentStory.totalPages + 10,
+          tone: selection.tone || currentStory.tone || '',
+          keywords: selection.keywords || currentStory.keywords || '',
           isCompleted: false
         };
         
@@ -511,7 +518,7 @@ export default function App() {
         };
       }
 
-      const storyTitle = finalSelection.title || `${finalSelection.subCategory || '이야기'} - ${new Date().toLocaleDateString()}`;
+      const storyTitle = finalSelection.title || `${finalSelection.subCategory || '이야기'}`;
 
       let storyDoc;
       try {
@@ -522,6 +529,7 @@ export default function App() {
           subCategory: finalSelection.subCategory || '기타',
           style: finalSelection.style || '기타',
           vibe: finalSelection.vibe || '기타',
+          tone: finalSelection.tone || '기타',
           keywords: finalSelection.keywords || '',
           language: lang,
           totalPages: selection.totalPages || 10,
@@ -543,6 +551,7 @@ export default function App() {
         subCategory: finalSelection.subCategory,
         style: finalSelection.style,
         vibe: finalSelection.vibe,
+        tone: finalSelection.tone,
         keywords: finalSelection.keywords,
         language: lang,
         totalPages: selection.totalPages || 10,
@@ -592,7 +601,8 @@ export default function App() {
         - Title: ${story.title}
         - Category: ${story.category} / ${story.subCategory}
         - Style: ${story.style}
-        - Keywords: ${story.keywords || 'None'}
+        ${story.tone ? `- Tone/Writing Style: ${story.tone}` : ''}
+        ${story.keywords ? `- Keywords: ${story.keywords}` : ''}
         - Vibe: ${currentVibe === '랜덤' ? 'Surprising and dynamic' : currentVibe}
         - Language: ${story.language === 'ko' ? 'Korean' : 'English'}
         ${referenceContext}
@@ -728,7 +738,8 @@ export default function App() {
     if (step === 'subCategory') setStep('category');
     else if (step === 'style') setStep('subCategory');
     else if (step === 'vibe') setStep('style');
-    else if (step === 'keywords') setStep('vibe');
+    else if (step === 'tone') setStep('vibe');
+    else if (step === 'keywords') setStep('tone');
     else if (step === 'pages') setStep('keywords');
     else if (step === 'library') setStep('category');
     else if (step === 'reading') setStep('library');
@@ -754,6 +765,10 @@ export default function App() {
     } else if (step === 'vibe') {
       const randomVibe = customVibes[Math.floor(Math.random() * customVibes.length)];
       setSelection({ ...selection, vibe: randomVibe.label });
+      setStep('tone');
+    } else if (step === 'tone') {
+      const randomTone = customTones[Math.floor(Math.random() * customTones.length)];
+      setSelection({ ...selection, tone: randomTone.label });
       setStep('keywords');
     } else if (step === 'keywords') {
       setSelection({ ...selection, keywords: "Surprise me!" });
@@ -763,7 +778,8 @@ export default function App() {
       startGeneration();
     } else if (step === 'nextVibe') {
       const randomVibe = customVibes[Math.floor(Math.random() * customVibes.length)];
-      generateNextPages(currentStory!, selection, currentStory!.currentPage, randomVibe.label);
+      setSelection({ ...selection, vibe: randomVibe.label });
+      setStep('tone');
     }
   };
 
@@ -1155,6 +1171,40 @@ export default function App() {
                     }}
                     onClick={() => {
                       setSelection({ ...selection, vibe: vibe.label });
+                      setStep('tone');
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step: Tone */}
+          {step === 'tone' && (
+            <motion.div 
+              key="tone"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col items-center justify-center p-8"
+            >
+              <div className="w-full text-center mb-12">
+                <h2 className="text-3xl font-black text-slate-800">{t('toneQ')}</h2>
+              </div>
+              <div className="flex flex-wrap items-center justify-center -space-x-4 -space-y-4 max-w-4xl">
+                {customTones.map((tone, i) => (
+                  <Bubble 
+                    key={tone.id}
+                    label={tone.label}
+                    color="bg-indigo-400"
+                    size={i % 3 === 0 ? "w-36 h-36" : "w-32 h-32"}
+                    onEdit={(newLabel) => {
+                      const newTones = [...customTones];
+                      newTones[i].label = newLabel;
+                      setCustomTones(newTones);
+                    }}
+                    onClick={() => {
+                      setSelection({ ...selection, tone: tone.label });
                       setStep('keywords');
                     }}
                   />
@@ -1264,7 +1314,8 @@ export default function App() {
                       setCustomVibes(newVibes);
                     }}
                     onClick={() => {
-                      generateNextPages(currentStory, selection, currentStory.currentPage, vibe.label);
+                      setSelection({ ...selection, vibe: vibe.label });
+                      setStep('tone');
                     }}
                   />
                 ))}
@@ -1355,7 +1406,15 @@ export default function App() {
 
                 {currentStory.currentPage < currentStory.totalPages && !isGenerating && (
                   <button 
-                    onClick={() => setStep('nextVibe')}
+                    onClick={() => {
+                      setSelection({
+                        ...selection,
+                        vibe: currentStory.vibe,
+                        tone: currentStory.tone,
+                        keywords: currentStory.keywords,
+                      });
+                      setStep('nextVibe');
+                    }}
                     className="w-full py-6 border-2 border-dashed border-slate-300 rounded-3xl text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 transition-all flex items-center justify-center gap-2"
                   >
                     <Plus className="w-5 h-5" />
@@ -1373,9 +1432,10 @@ export default function App() {
                         subCategory: currentStory.subCategory,
                         style: currentStory.style,
                         vibe: currentStory.vibe,
+                        tone: currentStory.tone,
                         keywords: currentStory.keywords,
                       });
-                      setStep('pages');
+                      setStep('nextVibe');
                     }}
                     className="w-full py-6 bg-blue-50 text-blue-600 border-2 border-blue-200 rounded-3xl font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
                   >
